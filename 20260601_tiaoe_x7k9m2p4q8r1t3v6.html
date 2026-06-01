@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>调额测算报告</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft YaHei',sans-serif;font-size:13px;background:#f0f2f5;color:#222}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+h1{font-size:20px;color:#1a3a6b;margin-bottom:4px}
+.subtitle{color:#666;font-size:12px;margin-bottom:20px}
+.section{background:#fff;border-radius:8px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.1);overflow:hidden}
+.sec-header{background:#1a3a6b;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+.sec-header h2{font-size:14px;font-weight:600}
+.sec-body{padding:14px 16px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th{background:#eef1f7;color:#1a3a6b;font-weight:600;padding:7px 10px;text-align:right;white-space:nowrap;border:1px solid #d0d8ea}
+th:first-child{text-align:left}
+td{padding:6px 10px;border:1px solid #e0e6f0;text-align:right;white-space:nowrap}
+td:first-child{text-align:left;font-weight:600;color:#1a3a6b}
+tr:hover td{background:#f5f8ff}
+.row-total td{background:#e8edf8;font-weight:700}
+.row-bnd td{background:#fff3cd;font-weight:700;color:#7a5200}
+.row-dec td{background:#fde8e8;font-weight:700;color:#a00}
+.good{color:#1a7a1a;font-weight:700}
+.warn{color:#b85c00;font-weight:700}
+.bad{color:#c00;font-weight:700}
+.rec-table td.rec-val{font-size:15px;font-weight:700;color:#0d47a1}
+.rec-table td.na{color:#aaa}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;background:#2e5ba8;color:#fff}
+.btn:hover{background:#1a3a6b}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:6px}
+.tag-g{background:#d4edda;color:#155724}
+.tag-r{background:#f8d7da;color:#721c24}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.nav a{padding:5px 14px;background:#fff;border-radius:20px;text-decoration:none;color:#1a3a6b;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.nav a:hover{background:#1a3a6b;color:#fff}
+.note{margin-top:12px;padding:10px 14px;background:#f7f9fe;border-left:3px solid #4a72c4;border-radius:0 4px 4px 0;font-size:11.5px;color:#444;line-height:1.8}
+.note b{color:#1a3a6b}
+.note ul{margin:4px 0 0 18px;padding:0}
+.note li{margin-bottom:2px}
+.ctrl-bar{background:#fff;border-radius:8px;padding:14px 18px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.1);display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-group label{font-size:11px;color:#666;font-weight:600}
+.ctrl-group select,.ctrl-group input{padding:5px 10px;border:1px solid #c8d4e8;border-radius:4px;font-size:13px;color:#222;background:#f8faff;width:140px}
+.ctrl-group input{width:90px}
+.ctrl-section{display:flex;gap:12px;align-items:flex-end;padding:0 16px;border-left:2px solid #e0e8f5}
+.ctrl-section-label{font-size:10px;color:#4a72c4;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.tag-irr{background:#e8f0fe;color:#1a3a6b;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle}
+.recalc-hint{font-size:11px;color:#888;margin-top:4px;align-self:flex-end}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>老客调额策略测算报告</h1>
+<p class="subtitle">模拟成交：2026-03 | 参考分布：3/6~3/10 | 生成时间：2026-06-01</p>
+
+<!-- ========== 控制栏 ========== -->
+<div class="ctrl-bar">
+  <div class="ctrl-group">
+    <label>📅 风险边界数据月份</label>
+    <select id="ctrl-month" onchange="onMonthChange()">
+      <option value="2026-02" selected>2026-02（当前）</option>
+      <option value="2025-12" disabled>2025-12（待补充）</option>
+      <option value="2025-11" disabled>2025-11（待补充）</option>
+      <option value="2025-10" disabled>2025-10（待补充）</option>
+      <option value="2025-09" disabled>2025-09（待补充）</option>
+      <option value="2025-08" disabled>2025-08（待补充）</option>
+    </select>
+  </div>
+  <div class="ctrl-section">
+    <div>
+      <div class="ctrl-section-label">边界参数 <span class="tag-irr">影响4.1/4.5/推荐</span></div>
+      <div style="display:flex;gap:12px">
+        <div class="ctrl-group">
+          <label>IRR</label>
+          <select id="ctrl-irr" onchange="onIRRChange()">
+            <option value="0.18">18%</option>
+            <option value="0.24" selected>24%</option>
+            <option value="0.30">30%</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ctrl-section">
+    <div>
+      <div class="ctrl-section-label">调幅组弹性 (g·h) <span class="tag-irr">影响4.5调幅/推荐</span></div>
+      <div style="display:flex;gap:12px">
+        <div class="ctrl-group">
+          <label>成交增长系数 g</label>
+          <input type="number" id="ctrl-g-lo" value="0.9" step="0.05" min="0.1" max="1.5" onchange="on45Change()">
+        </div>
+        <div class="ctrl-group">
+          <label>风险增长系数 h</label>
+          <input type="number" id="ctrl-h-lo" value="1.1" step="0.05" min="0.5" max="3" onchange="on45Change()">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ctrl-section">
+    <div>
+      <div class="ctrl-section-label">Ceiling组弹性 (g·h) <span class="tag-irr">影响4.5Ceiling/推荐</span></div>
+      <div style="display:flex;gap:12px">
+        <div class="ctrl-group">
+          <label>成交增长系数 g</label>
+          <input type="number" id="ctrl-g-hi" value="0.7" step="0.05" min="0.1" max="1.5" onchange="on45Change()">
+        </div>
+        <div class="ctrl-group">
+          <label>风险增长系数 h</label>
+          <input type="number" id="ctrl-h-hi" value="1.3" step="0.05" min="0.5" max="3" onchange="on45Change()">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="recalc-hint">⚡ 修改参数后自动重算</div>
+</div>
+
+<div class="nav">
+  <a href="#s41">4.1 风险边界</a>
+  <a href="#s42">4.2 当前风险</a>
+  <a href="#s43">4.3 调前风险</a>
+  <a href="#s44">4.4 调前固额</a>
+  <a href="#s45a">4.5 调幅推演</a>
+  <a href="#s45b">4.5 Ceiling推演</a>
+  <a href="#s46">最终方案</a>
+</div>
+
+<!-- ========== 4.1 ========== -->
+<div class="section" id="s41">
+<div class="sec-header"><h2>4.1 风险边界（2026-02，账龄24-）</h2><button class="btn" onclick="exportTable('t41','4.1风险边界')">⬇ 导出Excel</button></div>
+<div class="sec-body">
+<table id="t41">
+<thead><tr><th>分组</th><th>资产类型</th><th>成交金额(亿)</th><th>实际平均期限</th><th>使用期限</th><th>mob25</th><th>RATE</th><th>本息和系数</th><th>风险边界</th></tr></thead>
+<tbody>
+<tr><td>A0(原)</td><td>主营</td><td>8.58</td><td>7.34</td><td>7.99</td><td>1.52%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+<tr><td>A1</td><td>主营</td><td>4.35</td><td>8.60</td><td>7.99</td><td>3.04%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+<tr><td>A2</td><td>主营</td><td>2.05</td><td>8.99</td><td>7.99</td><td>3.87%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+<tr><td>B0</td><td>主营</td><td>0.56</td><td>9.47</td><td>7.99</td><td>4.35%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+<tr><td>B1</td><td>主营</td><td>0.00</td><td>10.43</td><td>7.99</td><td>5.66%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+<tr><td>B2</td><td>主营</td><td>0.00</td><td>10.41</td><td>7.99</td><td>6.67%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+<tr class="row-total"><td>主营汇总</td><td>主营</td><td>15.55</td><td>7.99</td><td>7.99</td><td>2.36%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+<tr class="row-total"><td>高定价汇总</td><td>高定价</td><td>2.64</td><td>9.06</td><td>9.06</td><td>4.58%</td><td>8.97%</td><td>1.0135</td><td>6.56%</td></tr>
+<tr class="row-total"><td>存量汇总</td><td>存量</td><td>6.79</td><td>9.68</td><td>9.68</td><td>6.83%</td><td>9.55%</td><td>1.0144</td><td>7.04%</td></tr>
+<tr><td>AA(拆分)</td><td>主营</td><td>-</td><td>7.34</td><td>7.99</td><td>0.68%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+<tr><td>A0(新)</td><td>主营</td><td>-</td><td>7.34</td><td>7.99</td><td>1.96%</td><td>7.99%</td><td>1.0121</td><td>5.72%</td></tr>
+</tbody>
+</table>
+<div class="note">
+  <b>数据口径说明</b>
+  <ul>
+    <li><b>取数来源</b>：<code>risk.listing_delq_rt_rm</code> 关联 <code>lkfx.wy_201901_xxxx_fabiaobase</code>，<code>dealmonth = 2026-02</code>（最近完整月），账龄 <code>accountagemonths &lt; 24</code>（开区间）。</li>
+    <li><b>mob25</b>：<code>sum(预估mob25逾期金额) / sum(本金)</code>，逐笔标的加总后再相除，不对单笔先算再平均。</li>
+    <li><b>平均期限</b>：<code>sum(期限×本金) / sum(本金)</code>。主营各评级展示"实际平均期限"，但 RATE/本息和系数/风险边界统一用<b>主营汇总平均期限（7.99月）</b>，高定价/存量各用自身汇总期限。</li>
+    <li><b>RATE</b>：<code>PMT(IRR/12, 期限, −1)×期限 − PMT(资金成本/12, 期限, −1)×期限</code>；当前 IRR=24%，资金成本=3.22%。</li>
+    <li><b>风险边界</b>：<code>(−0.36% + RATE − 1.38%) / (本息和系数 + RATE)</code>，其他成本=−0.36%，财务成本=−1.38%。</li>
+    <li><b>AA拆分</b>：AA 是原 A0 中的头部子集；已知 AA风险 = 原A0风险 × 0.35，按 AA 3.41亿、新A0 6.66亿规模将原A0 mob25 拆分为 AA 和新A0，边界公式与主营相同。</li>
+  </ul>
+</div>
+</div></div>
+
+<!-- ========== 4.2 当前风险 ========== -->
+<div class="section" id="s42">
+<div class="sec-header"><h2>4.2 当前风险 by 评级×额度段（mob25）</h2><button class="btn" onclick="exportTable('t42','4.2当前风险')">⬇ 导出Excel</button></div>
+<div class="sec-body">
+<table id="t42">
+<thead><tr><th>额度段</th><th>AA</th><th>A0</th><th>A1</th><th>A2</th><th>B0</th><th>B1</th><th>B2</th><th>C1</th><th>C2</th><th>D+</th></tr></thead>
+<tbody id="tb42"></tbody>
+</table>
+<div class="note">
+  <b>数据口径说明</b>
+  <ul>
+    <li><b>by 评级 by 资产类型成交金额（绝对值）</b>：来自用户提供的<b>模拟最新策略下成交结果</b>（2026-03 模拟），代表策略生效后各评级各资产类型的预期成交规模，不使用线上实际成交金额。</li>
+    <li><b>by 额度段分布占比</b>：取 <b>2026-03-06~03-10 实际线上成交</b>作为参考，只提取各「评级×资产类型×额度段」的金额占比（结构），不用其绝对值。若某评级某资产类型在参考期内无数据，逐级回退至评级+资产汇总、再评级汇总兜底。</li>
+    <li><b>额度段成交金额</b>：= 模拟 by 评级 by 资产类型总量 × 参考额度段占比，并校验各评级汇总额等于模拟总量。</li>
+    <li><b>主营 AA~B2 by 额度段 mob25</b>：基于 <b>2025-10-01~2025-11-15 成交</b>（该窗口已积累3个月 3_30 表现），筛账龄 &lt; 24；计算历史 by 评级 by 额度段的 3_30 风险率；归一化系数 = 各额度段 3_30 / 按 L1 成交分布加权的 by 评级 3_30 均值；最终 by 额度段 mob25 = 4.1 的 by 评级主营 mob25 × 归一化系数。</li>
+    <li><b>主营 C1 及以下</b>：主营资产量过小，by 额度段风险波动不可看，直接展示该评级汇总 mob25。</li>
+    <li><b>高定价/存量 mob25</b>：直接使用 4.1 中对应月份的汇总 mob25（不做 by 额度段拆分）。</li>
+    <li><b>by 评级综合风险边界</b>（底部行）：权重取上述<b>模拟成交金额</b> by 资产类型，公式 <code>Σ(模拟成交额[资产] × 4.1边界[资产]) / Σ(模拟成交额[资产])</code>，负值视为 0。</li>
+  </ul>
+</div>
+</div></div>
+
+<!-- ========== 4.3 调前风险 ========== -->
+<div class="section" id="s43">
+<div class="sec-header"><h2>4.3 调前风险 by 评级×额度段（调前风险系数：AA/A0=0.9，A1/A2=0.95，其余=1.0）</h2><button class="btn" onclick="exportTable('t43','4.3调前风险')">⬇ 导出Excel</button></div>
+<div class="sec-body">
+<table id="t43">
+<thead><tr><th>额度段</th><th>AA</th><th>A0</th><th>A1</th><th>A2</th><th>B0</th><th>B1</th><th>B2</th><th>C1</th><th>C2</th><th>D+</th></tr></thead>
+<tbody id="tb43"></tbody>
+</table>
+<div class="note">
+  <b>数据口径说明</b>
+  <ul>
+    <li><b>调前风险</b> = 4.2 当前风险（by 评级 by 额度段 mob25）× 调前风险系数。</li>
+    <li><b>调前风险系数含义</b>：当前观测到的风险已受调额策略影响（调额后优质客户优先成交，压低了整体风险）；系数用于还原"如果当初不调额"的假设风险水平。AA/A0=0.9 表示当前风险被调额作用压低约 10%，即无调额时实际风险应高出约 11%。</li>
+    <li><b>当前系数</b>：AA=0.9，A0=0.9，A1=0.95，A2=0.95，其余评级=1.0（临时值，完整计算方法待补充）。</li>
+    <li><b>调幅组 vs Ceiling 组划分</b>：按调前固额（调额前用户信用额度）区分；固额 &lt; 6W 归调幅调升组，≥ 6W 归 Ceiling 调升组。各组内用 4.4 中<b>归一化后的人头占比</b>（20W- 内）加权得到汇总调前风险。</li>
+    <li><b>仅展示 20W- 用户</b>：Cap=20W，超额用户无法被调升，不纳入后续推演。</li>
+  </ul>
+</div>
+</div></div>
+
+<!-- ========== 4.4 ========== -->
+<div class="section" id="s44">
+<div class="sec-header"><h2>4.4 加权调前固额（20W-内人头归一化）</h2><button class="btn" onclick="exportTable('t44','4.4加权调前固额')">⬇ 导出Excel</button></div>
+<div class="sec-body">
+<table id="t44">
+<thead><tr><th>评级</th><th>调幅组加权固额(元)</th><th>调幅组人头占比</th><th>Ceiling组加权固额(元)</th><th>Ceiling组人头占比</th></tr></thead>
+<tbody>
+<tr><td>AA</td><td>31,946</td><td>28.6%</td><td>146,183</td><td>71.4%</td></tr>
+<tr><td>A0</td><td>25,800</td><td>50.0%</td><td>119,208</td><td>50.0%</td></tr>
+<tr><td>A1</td><td>19,561</td><td>69.3%</td><td>115,056</td><td>30.7%</td></tr>
+<tr><td>A2</td><td>16,556</td><td>77.9%</td><td>113,249</td><td>22.1%</td></tr>
+<tr><td>B0</td><td>24,252</td><td>74.8%</td><td>110,668</td><td>25.2%</td></tr>
+<tr><td>B1</td><td>14,390</td><td>86.2%</td><td>109,491</td><td>13.8%</td></tr>
+<tr><td>B2</td><td>12,233</td><td>91.0%</td><td>107,658</td><td>9.0%</td></tr>
+<tr><td>C1</td><td>11,936</td><td>93.1%</td><td>105,910</td><td>6.9%</td></tr>
+</tbody>
+</table>
+<div class="note">
+  <b>数据口径说明</b>
+  <ul>
+    <li><b>调前固额来源</b>：历史统计的各评级各额度段用户调额前的平均信用额度（当前使用固定值，统计方法待补充）。</li>
+    <li><b>人头占比归一化</b>：原始占比仅含 20W- 用户，各评级各额度段原始占比之和 &lt; 100%（差额为 20W+ 用户，不参与调升）；加权前先将 20W- 内各额度段占比重新归一化至合计 100%，再做加权。</li>
+    <li><b>加权公式</b>：<code>加权固额 = Σ(固额[段] × 归一化人头占比[段]) / Σ(归一化人头占比[段])</code>，调幅组取 1W-~5W 段，Ceiling 组取 6W~20W 段。</li>
+  </ul>
+</div>
+</div></div>
+
+<!-- ========== 4.5 调幅推演 ========== -->
+<div class="section" id="s45a">
+<div class="sec-header"><h2>4.5 调幅调升推演（delta成交风险 vs 决策边界，g=0.9，h=1.1）</h2><button class="btn" onclick="exportTable('t45a','4.5调幅推演')">⬇ 导出Excel</button></div>
+<div class="sec-body">
+<table id="t45a"><thead></thead><tbody id="tb45a"></tbody></table>
+<div class="note">
+  <b>数据口径说明</b>
+  <ul>
+    <li><b>调幅范围</b>：10%~130%，步长 5%。</li>
+    <li><b>弹性参数</b>：成交边际增长系数 g=0.9（每+10%调幅，新增成交边际量为上一档的 90%）；风险边际增长系数 h=1.1（每+10%调幅，delta 风险倍数增长 10%）。</li>
+    <li><b>初始弹性点</b>：各评级历史测试数据（初始调幅 a、初始成交涨幅、初始风险涨幅）；AA 无历史数据，用 A0 弹性代替。</li>
+    <li><b>推演方法</b>：先将已知点 (a, b) 反推到 10% 基准点 b10，再从 10% 正向逐档推演；公式见 4.5-L1。</li>
+    <li><b>调前风险</b>：调幅组（固额 &lt; 6W）人头加权的调前 mob25（来自 4.3），即 4.3 汇总行"调幅调升"对应值。</li>
+    <li><b>delta 成交风险</b> = <code>[ (1+成交涨幅_新档)(1+风险涨幅_新档) − (1+成交涨幅_旧档)(1+风险涨幅_旧档) ] × 调前风险 / (成交涨幅_新档 − 成交涨幅_旧档)</code>；首档（0→10%）分母为 成交涨幅_10%。分母是"新增成交量"，结果是新增成交的风险率。</li>
+    <li><b>颜色规则</b>：绿色 = delta &lt; 决策边界×90%；橙色 = 决策边界×90%~100%；红色 = 超过决策边界。</li>
+  </ul>
+</div>
+</div></div>
+
+<!-- ========== 4.5 Ceiling 推演 ========== -->
+<div class="section" id="s45b">
+<div class="sec-header"><h2>4.5 Ceiling调升推演（delta成交风险 vs 决策边界，g=0.7，h=1.3）</h2><button class="btn" onclick="exportTable('t45b','4.5Ceiling推演')">⬇ 导出Excel</button></div>
+<div class="sec-body">
+<table id="t45b"><thead></thead><tbody id="tb45b"></tbody></table>
+<div class="note">
+  <b>数据口径说明</b>
+  <ul>
+    <li><b>Ceiling 范围</b>：4,000~60,000 元，步长 2,000 元。</li>
+    <li><b>弹性参数</b>：成交边际增长系数 g=0.7，风险边际增长系数 h=1.3（高额客群弹性更小、风险增长更快）。</li>
+    <li><b>实际调幅</b>：<code>ceiling 额度 / 该评级 Ceiling 组加权调前固额</code>（来自 4.4）；AA 固额≈14.6万，即 ceiling=30000 对应实际调幅约 20.5%。</li>
+    <li><b>弹性代理</b>：AA 用 A0 弹性代替；B0~B2 用 A2 弹性代替（量太小，弹性不置信）。</li>
+    <li><b>delta 成交风险分母</b>：相邻两档 ceiling 对应的成交涨幅之差（即该 ceiling 区间内新增的成交量占比），与调幅推演口径一致。</li>
+    <li><b>★ 标记</b>：每评级不超过决策边界的最大 ceiling 档，即推荐值。</li>
+    <li><b>调前风险</b>：Ceiling 组（固额 ≥ 6W）人头加权的调前 mob25（来自 4.3 汇总行 ceiling 调升列）。</li>
+  </ul>
+</div>
+</div></div>
+
+<!-- ========== 最终方案 ========== -->
+<div class="section" id="s46">
+<div class="sec-header"><h2>最终策略方案</h2><button class="btn" onclick="exportTable('t46','最终策略方案')">⬇ 导出Excel</button></div>
+<div class="sec-body">
+<table id="t46" class="rec-table">
+<thead><tr><th>评级</th><th>调前风险(调幅组)</th><th>调前风险(Ceiling组)</th><th>真实边界</th><th>决策边界(÷1.1)</th><th>推荐调幅(调幅调升)</th><th>推荐Ceiling额度(元)</th><th>Ceiling对应实际调幅</th></tr></thead>
+<tbody id="tb46"></tbody>
+</table>
+<div class="note">
+  <b>数据口径说明</b>
+  <ul>
+    <li><b>推荐调幅（调幅组）</b>：在 4.5 调幅推演表中，找每个评级 delta 成交风险连续不超决策边界的最高档（步长 5%）；首档（10%）已超边界则记为"—"。</li>
+    <li><b>推荐 Ceiling 额度</b>：在 4.5 Ceiling 推演表中，找每个评级不超决策边界的最大 ceiling 值（步长 2000 元），直接输出为元。</li>
+    <li><b>Ceiling 对应实际调幅</b>：<code>推荐 Ceiling / 该评级 Ceiling 组加权调前固额</code>，便于与调幅组横向对比。</li>
+    <li><b>真实边界</b>：<code>Σ(模拟成交额[资产] × 4.1边界[资产]) / Σ(模拟成交额[资产])</code>，按各评级<b>模拟</b>资产分布加权，代表该评级综合盈亏平衡风险线。</li>
+    <li><b>决策边界</b>：真实边界 ÷ 1.1，预留 1.1 倍安全 buffer，用于应对模型误差和市场波动。</li>
+  </ul>
+</div>
+</div></div>
+
+</div><!-- /container -->
+
+<script>
+// ======================== 静态数据 ========================
+const ratings10 = ['AA','A0','A1','A2','B0','B1','B2','C1','C2','D+'];
+const ratings7  = ['AA','A0','A1','A2','B0','B1','B2'];
+const buckets   = ['1W-','1W','2W','3W','4W','5W','6W','7W','8W~10W','10W~20W','汇总'];
+const BUFFER    = 1.1;
+const COST_FUND = 0.0322, OTHER_COST = -0.0036, FIN_COST = -0.0138;
+
+// 各资产汇总平均期限（来自4.1 SQL）
+const AVG_TERM = { main:7.99, high:9.06, stock:9.68 };
+
+// 模拟成交金额 by 评级 by 资产（用于加权边界，负值视为0）
+const SIM_AMT = {
+  AA:{main:3.41,high:0.01,stock:0}, A0:{main:6.66,high:0.11,stock:0},
+  A1:{main:5.99,high:0.47,stock:0}, A2:{main:3.26,high:0.71,stock:0.22},
+  B0:{main:2.87,high:0.45,stock:0.62}, B1:{main:0.01,high:1.67,stock:0.56},
+  B2:{main:0,high:1.28,stock:1.04},
+};
+
+// 当前风险 mob25 by 额度段（%）
+const curMob = {
+  AA:  [1.243,0.797,1.357,0.760,0.883,0.777,0.869,0.841,0.628,0.674,0.696],
+  A0:  [3.490,2.266,3.056,2.009,2.337,2.148,2.392,2.191,1.741,1.813,1.991],
+  A1:  [3.262,3.225,3.706,3.858,3.347,3.484,4.377,3.043,2.829,2.573,3.031],
+  A2:  [4.711,4.668,4.930,3.590,3.225,3.378,4.349,3.261,4.521,3.908,4.148],
+  B0:  [5.187,4.910,6.532,8.323,4.394,3.155,1.363,8.767,4.975,3.274,4.764],
+  B1:  [5.539,5.268,5.243,5.032,5.260,4.973,5.073,5.429,4.904,4.983,5.149],
+  B2:  [6.133,5.821,5.733,5.488,5.464,5.535,5.870,5.197,5.232,5.155,5.589],
+  C1:  [5.665,5.665,5.665,5.665,5.665,5.665,5.665,5.665,5.665,5.665,5.665],
+  C2:  [6.424,6.424,6.424,6.424,6.424,6.424,6.424,6.424,6.424,6.424,6.424],
+  'D+':[6.729,6.729,6.729,6.729,6.729,6.729,6.729,6.729,6.729,6.729,6.729],
+};
+const preCoef = {AA:0.9,A0:0.9,A1:0.95,A2:0.95,B0:1,B1:1,B2:1,C1:1,C2:1,'D+':1};
+const preMob = {};
+for(const r of ratings10) preMob[r] = curMob[r].map(v => +(v*preCoef[r]).toFixed(3));
+
+// 弹性初始点
+const loParams = {AA:[0.34,0.96,0.15],A0:[0.34,0.96,0.15],A1:[0.39,0.86,0.15],A2:[0.39,0.82,0.15],B0:[0.38,0.75,0.15],B1:[0.39,0.72,0.15],B2:[0.34,0.60,0.15]};
+const hiParams = {AA:[0.18,0.28,0.05],A0:[0.18,0.28,0.05],A1:[0.19,0.33,0.03],A2:[0.16,0.22,0.03],B0:[0.16,0.22,0.03],B1:[0.16,0.22,0.03],B2:[0.16,0.22,0.03]};
+const preRiskLo = {AA:0.826616,A0:2.250111,A1:3.287532,A2:4.111523,B0:5.461143,B1:5.281374,B2:5.824031};
+const preRiskHi = {AA:0.609225,A0:1.679663,A1:2.673491,A2:3.790281,B0:3.962460,B1:4.995979,B2:5.234563};
+const fixedHi   = {AA:146183,A0:119208,A1:115056,A2:113249,B0:110668,B1:109491,B2:107658};
+
+// ======================== 动态边界计算 ========================
+function pmt(r,n){ return r/(1-Math.pow(1+r,-n)); }
+function computeBoundary(irr, avgTerm){
+  const rate = pmt(irr/12,avgTerm)*avgTerm - pmt(COST_FUND/12,avgTerm)*avgTerm;
+  const pis  = pmt(COST_FUND/12,avgTerm)*avgTerm;
+  return (OTHER_COST + rate + FIN_COST)/(pis + rate);
+}
+function computeRateAndPIS(irr, avgTerm){
+  const rate = pmt(irr/12,avgTerm)*avgTerm - pmt(COST_FUND/12,avgTerm)*avgTerm;
+  const pis  = pmt(COST_FUND/12,avgTerm)*avgTerm;
+  return {rate, pis};
+}
+
+// 由IRR计算各资产边界，再按模拟成交加权得到by评级边界
+function calcBoundaries(irr){
+  const bMain  = computeBoundary(irr, AVG_TERM.main);
+  const bHigh  = computeBoundary(irr, AVG_TERM.high);
+  const bStock = computeBoundary(irr, AVG_TERM.stock);
+  const trueBnd={}, decBnd={};
+  for(const r of ratings7){
+    const m=Math.max(SIM_AMT[r].main,0), h=Math.max(SIM_AMT[r].high,0), s=Math.max(SIM_AMT[r].stock,0);
+    const tot=m+h+s;
+    const tb=(m*bMain+h*bHigh+s*bStock)/tot;
+    trueBnd[r]=+(tb*100).toFixed(2);
+    decBnd[r] =+(tb*100/BUFFER).toFixed(2);
+  }
+  return {bMain,bHigh,bStock,trueBnd,decBnd};
+}
+
+// 当前IRR下的边界（默认24%）
+let CUR_IRR = 0.24;
+let {bMain,bHigh,bStock,trueBnd,decBnd} = calcBoundaries(CUR_IRR);
+
+// ======================== 推演函数 ========================
+function b10d(a,b,g){if(Math.abs(a-0.1)<1e-9)return b;const e=10*(a-0.1);return b/(1+(g/(1-g))*(1-Math.pow(g,e)));}
+function b10r(a,b,h){if(Math.abs(a-0.1)<1e-9)return b;const e=10*(a-0.1);return b/(10*a*Math.pow(h,e));}
+function fd(x,b,g){const e=10*(x-0.1);return b*(1+(g/(1-g))*(1-Math.pow(g,e)));}
+function fr(x,b,h){const e=10*(x-0.1);return 10*x*b*Math.pow(h,e);}
+
+// ======================== 静态表格构建（4.2/4.3/4.4）========================
+function buildMobTable(tbId, data){
+  const tb = document.getElementById(tbId); tb.innerHTML='';
+  for(let bi=0;bi<buckets.length;bi++){
+    const tr=document.createElement('tr');
+    if(buckets[bi]==='汇总') tr.className='row-total';
+    let html=`<td>${buckets[bi]}</td>`;
+    for(const r of ratings10) html+=`<td>${data[r][bi].toFixed(2)}%</td>`;
+    tr.innerHTML=html; tb.appendChild(tr);
+  }
+}
+
+// ======================== 4.1 动态更新（仅RATE/本息和/边界列）========================
+// row index -> asset type: 0-6 & 9-10 = main, 7 = high, 8 = stock
+const T41_ASSET = ['main','main','main','main','main','main','main','high','stock','main','main'];
+function updateBndRow(){
+  const{rate:rM,pis:pM}=computeRateAndPIS(CUR_IRR,AVG_TERM.main);
+  const{rate:rH,pis:pH}=computeRateAndPIS(CUR_IRR,AVG_TERM.high);
+  const{rate:rS,pis:pS}=computeRateAndPIS(CUR_IRR,AVG_TERM.stock);
+  const byAsset={
+    main:{rate:rM,pis:pM,bnd:bMain},
+    high:{rate:rH,pis:pH,bnd:bHigh},
+    stock:{rate:rS,pis:pS,bnd:bStock},
+  };
+  const rows=document.querySelectorAll('#t41 tbody tr');
+  rows.forEach((tr,i)=>{
+    const a=T41_ASSET[i]; if(!a||!byAsset[a]) return;
+    const{rate,pis,bnd}=byAsset[a];
+    const cells=tr.querySelectorAll('td');
+    if(cells.length>=9){
+      cells[6].textContent=(rate*100).toFixed(2)+'%';
+      cells[7].textContent=pis.toFixed(4);
+      cells[8].textContent=(bnd*100).toFixed(2)+'%';
+    }
+  });
+  document.querySelector('#s41 .sec-header h2').textContent=`4.1 风险边界（2026-02，账龄24-，IRR=${(CUR_IRR*100).toFixed(0)}%）`;
+}
+
+// ======================== 4.5 调幅推演（动态）========================
+function buildLo45(g_lo, h_lo){
+  const steps=[]; for(let x=10;x<=130;x+=5)steps.push(x);
+  const thead=document.querySelector('#t45a thead'); thead.innerHTML='';
+  const hr=document.createElement('tr');
+  hr.innerHTML='<th>调幅</th>'+ratings7.map(r=>`<th>${r}</th>`).join('');
+  thead.appendChild(hr);
+  const tbody=document.getElementById('tb45a'); tbody.innerHTML='';
+
+  const B10d={},B10r={};
+  for(const r of ratings7){const[a,bd,br]=loParams[r];B10d[r]=b10d(a,bd,g_lo);B10r[r]=b10r(a,br,h_lo);}
+
+  for(const xp of steps){
+    const x=xp/100;
+    const tr=document.createElement('tr');
+    let html=`<td>${xp}%</td>`;
+    for(const r of ratings7){
+      const dd=fd(x,B10d[r],g_lo); const dr=fr(x,B10r[r],h_lo);
+      let delta;
+      if(xp===10){delta=((1+dd)*(1+dr)-1)*(preRiskLo[r]/100)/dd;}
+      else{const xv=(xp-5)/100;const ddp=fd(xv,B10d[r],g_lo);const drp=fr(xv,B10r[r],h_lo);const ddd=dd-ddp;delta=ddd>1e-8?((1+dd)*(1+dr)-(1+ddp)*(1+drp))*(preRiskLo[r]/100)/ddd:999;}
+      const pct=(delta*100).toFixed(2)+'%';
+      const db=decBnd[r]/100;
+      html+=`<td class="${delta>db?'bad':delta>db*0.9?'warn':'good'}">${pct}</td>`;
+    }
+    tr.innerHTML=html; tbody.appendChild(tr);
+  }
+  const bRow=document.createElement('tr'); bRow.className='row-bnd';
+  bRow.innerHTML='<td>真实边界</td>'+ratings7.map(r=>`<td>${trueBnd[r].toFixed(2)}%</td>`).join('');
+  const dRow=document.createElement('tr'); dRow.className='row-dec';
+  dRow.innerHTML='<td>决策边界(÷1.1)</td>'+ratings7.map(r=>`<td>${decBnd[r].toFixed(2)}%</td>`).join('');
+  tbody.appendChild(bRow); tbody.appendChild(dRow);
+  document.querySelector('#s45a .sec-header h2').textContent=`4.5 调幅调升推演（g=${g_lo.toFixed(2)}，h=${h_lo.toFixed(2)}，IRR=${(CUR_IRR*100).toFixed(0)}%）`;
+}
+
+// ======================== 4.5 Ceiling推演（动态）========================
+function buildHi45(g_hi, h_hi){
+  const ceilings=[]; for(let c=4000;c<=60000;c+=2000)ceilings.push(c);
+  const thead=document.querySelector('#t45b thead'); thead.innerHTML='';
+  const hr=document.createElement('tr');
+  hr.innerHTML='<th>Ceiling(元)</th>'+ratings7.map(r=>`<th>${r}<br><small>固额${Math.round(fixedHi[r]/10000)}万</small></th>`).join('');
+  thead.appendChild(hr);
+  const tbody=document.getElementById('tb45b'); tbody.innerHTML='';
+
+  const B10d={},B10r={};
+  for(const r of ratings7){const[a,bd,br]=hiParams[r];B10d[r]=b10d(a,bd,g_hi);B10r[r]=b10r(a,br,h_hi);}
+
+  // 找推荐ceiling
+  const recCeil={};
+  for(const r of ratings7){
+    let ppDd=0,ppDr=0,best=0;
+    for(const c of ceilings){
+      const x=c/fixedHi[r],dd=fd(x,B10d[r],g_hi),dr=fr(x,B10r[r],h_hi);
+      const ddd=dd-ppDd;
+      const delta=ppDd===0?(Math.abs(dd)>1e-8?((1+dd)*(1+dr)-1)*(preRiskHi[r]/100)/dd:0):(Math.abs(ddd)>1e-8?((1+dd)*(1+dr)-(1+ppDd)*(1+ppDr))*(preRiskHi[r]/100)/ddd:999);
+      if(delta<=decBnd[r]/100) best=c; else break;
+      ppDd=dd; ppDr=dr;
+    }
+    recCeil[r]=best;
+  }
+
+  for(const c of ceilings){
+    const tr=document.createElement('tr');
+    let html=`<td>${c.toLocaleString()}</td>`;
+    for(const r of ratings7){
+      let ppDd=0,ppDr=0;
+      for(const cc of ceilings){
+        const x2=cc/fixedHi[r],dd2=fd(x2,B10d[r],g_hi),dr2=fr(x2,B10r[r],h_hi);
+        if(cc===c){
+          const ddd=dd2-ppDd;
+          const delta=ppDd===0?(Math.abs(dd2)>1e-8?((1+dd2)*(1+dr2)-1)*(preRiskHi[r]/100)/dd2:0):(Math.abs(ddd)>1e-8?((1+dd2)*(1+dr2)-(1+ppDd)*(1+ppDr))*(preRiskHi[r]/100)/ddd:999);
+          const db=decBnd[r]/100,isRec=(c===recCeil[r]);
+          html+=`<td class="${delta>db?'bad':delta>db*0.9?'warn':'good'}"${isRec?' style="outline:2px solid #0d47a1;outline-offset:-2px"':''}>${(delta*100).toFixed(2)}%${isRec?'★':''}</td>`;
+          break;
+        }
+        ppDd=dd2; ppDr=dr2;
+      }
+    }
+    tr.innerHTML=html; tbody.appendChild(tr);
+  }
+  const bRow=document.createElement('tr'); bRow.className='row-bnd';
+  bRow.innerHTML='<td>真实边界</td>'+ratings7.map(r=>`<td>${trueBnd[r].toFixed(2)}%</td>`).join('');
+  const dRow=document.createElement('tr'); dRow.className='row-dec';
+  dRow.innerHTML='<td>决策边界(÷1.1)</td>'+ratings7.map(r=>`<td>${decBnd[r].toFixed(2)}%</td>`).join('');
+  tbody.appendChild(bRow); tbody.appendChild(dRow);
+  document.querySelector('#s45b .sec-header h2').textContent=`4.5 Ceiling调升推演（g=${g_hi.toFixed(2)}，h=${h_hi.toFixed(2)}，IRR=${(CUR_IRR*100).toFixed(0)}%）`;
+  return recCeil;
+}
+
+// ======================== 最终方案（动态）========================
+function buildFinal(g_lo,h_lo,g_hi,h_hi){
+  // 计算推荐调幅
+  const steps=[]; for(let x=10;x<=130;x+=5)steps.push(x);
+  const B10dL={},B10rL={};
+  for(const r of ratings7){const[a,bd,br]=loParams[r];B10dL[r]=b10d(a,bd,g_lo);B10rL[r]=b10r(a,br,h_lo);}
+  const maxLoPct={};
+  for(const r of ratings7){
+    let best=0;
+    for(const xp of steps){
+      const x=xp/100,dd=fd(x,B10dL[r],g_lo),dr=fr(x,B10rL[r],h_lo);
+      let delta;
+      if(xp===10){delta=((1+dd)*(1+dr)-1)*(preRiskLo[r]/100)/dd;}
+      else{const xv=(xp-5)/100;const ddp=fd(xv,B10dL[r],g_lo);const drp=fr(xv,B10rL[r],h_lo);const ddd=dd-ddp;delta=ddd>1e-8?((1+dd)*(1+dr)-(1+ddp)*(1+drp))*(preRiskLo[r]/100)/ddd:999;}
+      if(delta<=decBnd[r]/100) best=xp; else break;
+    }
+    maxLoPct[r]=best;
+  }
+  // 计算推荐ceiling
+  const ceilings=[]; for(let c=4000;c<=60000;c+=2000)ceilings.push(c);
+  const B10dH={},B10rH={};
+  for(const r of ratings7){const[a,bd,br]=hiParams[r];B10dH[r]=b10d(a,bd,g_hi);B10rH[r]=b10r(a,br,h_hi);}
+  const recCeil={};
+  for(const r of ratings7){
+    let ppDd=0,ppDr=0,best=0;
+    for(const c of ceilings){
+      const x=c/fixedHi[r],dd=fd(x,B10dH[r],g_hi),dr=fr(x,B10rH[r],h_hi);
+      const ddd=dd-ppDd;
+      const delta=ppDd===0?(Math.abs(dd)>1e-8?((1+dd)*(1+dr)-1)*(preRiskHi[r]/100)/dd:0):(Math.abs(ddd)>1e-8?((1+dd)*(1+dr)-(1+ppDd)*(1+ppDr))*(preRiskHi[r]/100)/ddd:999);
+      if(delta<=decBnd[r]/100) best=c; else break;
+      ppDd=dd; ppDr=dr;
+    }
+    recCeil[r]=best;
+  }
+  const tb=document.getElementById('tb46'); tb.innerHTML='';
+  for(const r of ratings7){
+    const tr=document.createElement('tr');
+    const ceil=recCeil[r],fx=fixedHi[r],adjPct=ceil?(Math.round(ceil/fx*1000)/10):0;
+    const lo=maxLoPct[r],preL=preRiskLo[r],preH=preRiskHi[r],tb_=trueBnd[r],db=decBnd[r];
+    const loCell=lo>0?`<td class="rec-val">${lo}%</td>`:`<td class="na rec-val">—（10%首档已超）</td>`;
+    const ceilCell=ceil>0?`<td class="rec-val">${ceil.toLocaleString()} 元</td><td>${adjPct}%</td>`:`<td class="na rec-val">—</td><td>—</td>`;
+    tr.innerHTML=`<td>${r}</td><td>${preL.toFixed(2)}%</td><td>${preH.toFixed(2)}%</td><td>${tb_.toFixed(2)}%</td><td>${db.toFixed(2)}%</td>${loCell}${ceilCell}`;
+    tb.appendChild(tr);
+  }
+}
+
+// ======================== 事件处理 ========================
+function getControls(){
+  return {
+    irr: parseFloat(document.getElementById('ctrl-irr').value),
+    g_lo: parseFloat(document.getElementById('ctrl-g-lo').value),
+    h_lo: parseFloat(document.getElementById('ctrl-h-lo').value),
+    g_hi: parseFloat(document.getElementById('ctrl-g-hi').value),
+    h_hi: parseFloat(document.getElementById('ctrl-h-hi').value),
+  };
+}
+
+function onIRRChange(){
+  const{irr,g_lo,h_lo,g_hi,h_hi}=getControls();
+  CUR_IRR=irr;
+  ({bMain,bHigh,bStock,trueBnd,decBnd}=calcBoundaries(irr));
+  updateBndRow();
+  buildLo45(g_lo,h_lo);
+  buildHi45(g_hi,h_hi);
+  buildFinal(g_lo,h_lo,g_hi,h_hi);
+}
+
+function on45Change(){
+  const{irr,g_lo,h_lo,g_hi,h_hi}=getControls();
+  buildLo45(g_lo,h_lo);
+  buildHi45(g_hi,h_hi);
+  buildFinal(g_lo,h_lo,g_hi,h_hi);
+}
+
+function onMonthChange(){
+  // 仅当前月有数据；其余月份选项已 disabled，此处为扩展预留
+  alert('其他月份数据待补充，切换后请重新预埋 JSON。');
+  document.getElementById('ctrl-month').value='2026-02';
+}
+
+// ======================== 初始化渲染 ========================
+buildMobTable('tb42',curMob);
+buildMobTable('tb43',preMob);
+updateBndRow();
+const{g_lo:GL,h_lo:HL,g_hi:GH,h_hi:HH}=getControls();
+buildLo45(GL,HL);
+buildHi45(GH,HH);
+buildFinal(GL,HL,GH,HH);
+
+// ======================== Excel Export ========================
+function exportTable(tableId, sheetName){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.table_to_sheet(document.getElementById(tableId));
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  XLSX.writeFile(wb,`调额测算_${sheetName}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+function exportAll(){
+  const wb=XLSX.utils.book_new();
+  const maps=[['t41','4.1风险边界'],['t42','4.2当前风险'],['t43','4.3调前风险'],
+              ['t44','4.4调前固额'],['t45a','4.5调幅推演'],['t45b','4.5Ceiling推演'],['t46','最终方案']];
+  for(const[id,name]of maps) XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(document.getElementById(id)),name);
+  XLSX.writeFile(wb,`调额测算完整报告_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+</script>
+
+<!-- Export All button -->
+<div style="text-align:center;margin:10px 0 30px">
+  <button class="btn" style="padding:10px 28px;font-size:14px" onclick="exportAll()">⬇ 导出全部 Sheet（Excel）</button>
+</div>
+
+</body>
+</html>
